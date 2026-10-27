@@ -1,0 +1,8 @@
+# KiCad local history and backups
+**/.history/
+*-backups/
+
+# Microchip Studio / Visual Studio build output and settings
+**/Debug/
+**/Release/
+**/.vs/
