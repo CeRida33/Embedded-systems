@@ -3,8 +3,8 @@
 #include <Adafruit_SSD1306.h>
 #include <FlexCAN_T4.h>
 
-constexpr int GRUPPE = 42;      // TODO: eget gruppenr
-constexpr int MOTSTANDER = 43;  // TODO: motstanders gruppenr
+constexpr int GRUPPE = 1;      // TODO: eget gruppenr
+constexpr int MOTSTANDER = GRUPPE + 1;  // PC-spilleren (spiller2.py)
 
 // Joystick-pinner, sjekk mot SK Pang-skjemaet
 constexpr int JOY_UP = 22, JOY_DOWN = 23, JOY_CLICK = 19;
@@ -92,6 +92,14 @@ void loop() {
       minPoeng = m.buf[3];
     }
   }
+
+  // Tastatur via USB-serial styrer venstre plate: w = opp, s = ned
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == 'w') motY -= 3;
+    if (c == 's') motY += 3;
+  }
+  motY = constrain(motY, 0, H - PH);
 
   // Alt annet går på fast takt: 10 ms = 100 Hz
   if (millis() - sistTick < 10) return;

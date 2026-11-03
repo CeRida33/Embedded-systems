@@ -6,7 +6,7 @@
  */ 
 
 #include <avr/io.h>
-#define F_CPU 1000000UL              // Må stemme med faktisk klokke, ellers blir _delay_ms feil
+#define F_CPU 1000000UL              
 #include <avr/io.h>
 #include <avr/pgmspace.h>            // PROGMEM og pgm_read_byte
 #include <util/delay.h>              // _delay_ms
@@ -36,7 +36,7 @@ static void pwm_init(void)
 {
 	DDRD |= (1 << DDD6);                       // OC0A (PD6) som utgang
 
-	TCCR0A = (1 << COM0A1) | (1 << COM0A0)     // Inverterende: større OCR0A = mer lys (sink-LED)
+	TCCR0A = (1 << COM0A1) | (1 << COM0A0)     // Inverterende: stï¿½rre OCR0A = mer lys (sink-LED)
 	| (1 << WGM01)  | (1 << WGM00);     // Fast PWM, TOP = 0xFF
 	TCCR0B = (1 << CS01);                      // Prescaler 8 -> ? 488 Hz ved 1 MHz
 
@@ -50,7 +50,7 @@ int main(void)
 	while (1)
 	{
 		// Opp: 256 steg x 8 ms ? 2 s
-		// uint16_t fordi en uint8_t aldri blir 256, og løkka ville gått evig
+		// uint16_t fordi en uint8_t aldri blir 256, og lï¿½kka ville gï¿½tt evig
 		for (uint16_t i = 0; i < 256; i++) {
 			OCR0A = pgm_read_byte(&gamma8[i]);   // Les fra flash, ikke direkte gamma8[i]
 			_delay_ms(8);
