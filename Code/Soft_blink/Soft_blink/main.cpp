@@ -6,13 +6,14 @@
  */ 
 
 #include <avr/io.h>
-#define F_CPU 1000000UL              
+#define F_CPU 1000000UL
 #include <avr/io.h>
 #include <avr/pgmspace.h>            // PROGMEM og pgm_read_byte
 #include <util/delay.h>              // _delay_ms
 
-// Gammakorrigert tabell: gamma8[x] = round(255 * (x/255)^2.2)
-// PROGMEM legger tabellen i flash (16 KB) i stedet for SRAM (bare 1 KB).
+// Gamma corrected table: gamma8[x] = round(255 * (x/255)^2.2)
+// The PROGMEM makes the table in flask (16KB) instead of for SRAM (1KB)
+
 static const uint8_t gamma8[256] PROGMEM = {
 	0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   1,
 	1,   1,   1,   1,   1,   1,   1,   1,   1,   2,   2,   2,   2,   2,   2,   2,
@@ -34,9 +35,9 @@ static const uint8_t gamma8[256] PROGMEM = {
 
 static void pwm_init(void)
 {
-	DDRD |= (1 << DDD6);                       // OC0A (PD6) som utgang
+	DDRD |= (1 << DDD6);                       // OC0A (PD6) as Exit
 
-	TCCR0A = (1 << COM0A1) | (1 << COM0A0)     // Inverterende: st�rre OCR0A = mer lys (sink-LED)
+	TCCR0A = (1 << COM0A1) | (1 << COM0A0)     // Inverting: Larger OCR0A = More light (sink-LED)
 	| (1 << WGM01)  | (1 << WGM00);     // Fast PWM, TOP = 0xFF
 	TCCR0B = (1 << CS01);                      // Prescaler 8 -> ? 488 Hz ved 1 MHz
 
@@ -49,14 +50,14 @@ int main(void)
 
 	while (1)
 	{
-		// Opp: 256 steg x 8 ms ? 2 s
-		// uint16_t fordi en uint8_t aldri blir 256, og l�kka ville g�tt evig
+		// Up: 256 steg x 8 ms, 2 s
+		// uint16_t because a uint_t never becomes 256 and the loop would continue forever
 		for (uint16_t i = 0; i < 256; i++) {
-			OCR0A = pgm_read_byte(&gamma8[i]);   // Les fra flash, ikke direkte gamma8[i]
+			OCR0A = pgm_read_byte(&gamma8[i]);   //
 			_delay_ms(8);
 		}
 
-		// Ned: ? 2 s
+		// Down: 2 s
 		for (int16_t i = 255; i >= 0; i--) {
 			OCR0A = pgm_read_byte(&gamma8[i]);
 			_delay_ms(8);

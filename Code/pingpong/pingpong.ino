@@ -96,8 +96,9 @@ void loop() {
   // Tastatur via USB-serial styrer venstre plate: w = opp, s = ned
   while (Serial.available()) {
     char c = Serial.read();
-    if (c == 'w') motY -= 3;
-    if (c == 's') motY += 3;
+    Serial.print(c);          // ekko: viser hva Teensyen mottok
+    if (c == 'w') motY -= 3;   //w + enter for movement in serial monitor
+    if (c == 's') motY += 3;  // s  + enter for movement in serial monitor
   }
   motY = constrain(motY, 0, H - PH);
 
