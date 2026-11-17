@@ -3,8 +3,8 @@
 #include <Adafruit_SSD1306.h>
 #include <FlexCAN_T4.h>
 
-constexpr int GRUPPE = 1;      // TODO: eget gruppenr
-constexpr int MOTSTANDER = 2;  // TODO: motstanders gruppenr
+constexpr int GRUPPE = 1;      // TODO: eget gruppenr + 20
+constexpr int MOTSTANDER = 2;  // TODO: motstanders gruppenr + 20
 
 // Joystick-pinner, sjekk mot SK Pang-skjemaet
 constexpr int JOY_UP = 22, JOY_DOWN = 23, JOY_CLICK = 19;
