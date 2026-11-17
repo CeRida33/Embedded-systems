@@ -3,20 +3,25 @@
 #include <Adafruit_SSD1306.h>
 #include <FlexCAN_T4.h>
 
+<<<<<<< Updated upstream
 constexpr int GRUPPE = 1;      // TODO: eget gruppenr + 20
 constexpr int MOTSTANDER = 2;  // TODO: motstanders gruppenr + 20
+=======
+constexpr int GRUPPE = 2;      // Your groups number
+constexpr int MOTSTANDER = 1;  // Opponents group nymber
+>>>>>>> Stashed changes
 
-// Joystick-pinner, sjekk mot SK Pang-skjemaet
+// Joystick pins
 constexpr int JOY_UP = 22, JOY_DOWN = 23, JOY_CLICK = 19;
 
 constexpr int W = 128, H = 64;
-constexpr int PH = 20, PW = 4, BALL = 3;  // platehøyde, platebredde, ballstørrelse
+constexpr int PH = 20, PW = 4, BALL = 3;  // height, thickness and ball size
 
 Adafruit_SSD1306 display(W, H, &SPI, 6, 5, 10);  // DC, RESET, CS
 FlexCAN_T4<CAN0, RX_SIZE_256, TX_SIZE_16> can0;
 
-int minY = (H - PH) / 2, motY = (H - PH) / 2;  // øverste kant av platene
-int ballX = -1, ballY = 0;                      // ballX = -1 betyr ingen ball ennå
+int minY = (H - PH) / 2, motY = (H - PH) / 2;  // Top section of the plate
+int ballX = -1, ballY = 0;                     
 int vx = 1, vy = 1;
 int minPoeng = 0, motPoeng = 0;
 bool master = false;
@@ -39,16 +44,16 @@ void nyBall() {
   ballY = H / 2;
 }
 
-// Ballfysikk, kjøres bare hos master
+// Ball physics, only run from the master Teensy
 void oppdaterBall() {
   ballX += vx;
   ballY += vy;
-  if (ballY <= 0 || ballY >= H - BALL) vy = -vy;  // sprett i tak/gulv
+  if (ballY <= 0 || ballY >= H - BALL) vy = -vy;  // bounce on roof and floor
 
-  if (vx > 0 && ballX >= W - PW - BALL) {         // min side (høyre)
+  if (vx > 0 && ballX >= W - PW - BALL) {         // Your groups side (right)
     if (treffer(minY)) vx = -vx;
     else { motPoeng++; nyBall(); }
-  } else if (vx < 0 && ballX <= PW) {             // motstanders side (venstre)
+  } else if (vx < 0 && ballX <= PW) {             // opponents side (left)
     if (treffer(motY)) vx = -vx;
     else { minPoeng++; nyBall(); }
   }
@@ -80,29 +85,29 @@ void setup() {
 }
 
 void loop() {
-  // Motta alt som ligger i køen
+  // Recive everything in the que
   CAN_message_t m;
   while (can0.read(m)) {
     if (m.id == MOTSTANDER + 20) {
       motY = m.buf[0];
     } else if (m.id == MOTSTANDER + 50 && !master) {
-      ballX = W - BALL - m.buf[0];  // speilvend x, motstander har motsatt koordinatsystem
+      ballX = W - BALL - m.buf[0];  // mirroring x to make your opponents coordniates
       ballY = m.buf[1];
-      motPoeng = m.buf[2];          // masters poeng er motstanders poeng hos oss
+      motPoeng = m.buf[2];          // Master points is the opponents points in our system
       minPoeng = m.buf[3];
     }
   }
 
-  // Alt annet går på fast takt: 10 ms = 100 Hz
+  // Everything moves at a dictated rate 10 ms = 100 Hz
   if (millis() - sistTick < 10) return;
   sistTick = millis();
 
-  // Joystick (aktiv lav)
+  // Joystick (active low)
   if (digitalRead(JOY_UP) == LOW) minY--;
   if (digitalRead(JOY_DOWN) == LOW) minY++;
   minY = constrain(minY, 0, H - PH);
 
-  // Første som trykker blir master, så lenge ingen ball har kommet
+  // First person to click the joystick becomes master. Unless a ball is already in play. 
   if (!master && ballX < 0 && digitalRead(JOY_CLICK) == LOW) {
     master = true;
     nyBall();

@@ -7,7 +7,6 @@
 
 #include <avr/io.h>
 #define F_CPU 1000000UL
-#include <avr/io.h>
 #include <avr/pgmspace.h>            // PROGMEM og pgm_read_byte
 #include <util/delay.h>              // _delay_ms
 
@@ -35,14 +34,14 @@ static const uint8_t gamma8[256] PROGMEM = {
 
 static void pwm_init(void)
 {
-	DDRD |= (1 << DDD6);                       // OC0A (PD6) as Exit
+	DDRD |= (1 << DDD6);                       // OC0A (PD6) as output
 
-	TCCR0A = (1 << COM0A1) | (1 << COM0A0)     // Inverting: Larger OCR0A = More light (sink-LED)
-	| (1 << WGM01)  | (1 << WGM00);     // Fast PWM, TOP = 0xFF
-	TCCR0B = (1 << CS01);                      // Prescaler 8 -> ? 488 Hz ved 1 MHz
+	TCCR0A = (1 << COM0A1)                     // Non-inverting: larger OCR0A = more light (source LED)
+		   | (1 << WGM01) | (1 << WGM00);      // Fast PWM, TOP = 0xFF
+	TCCR0B = (1 << CS01);                      // Prescaler 8 -> f_PWM = 1 MHz/(8*256) ~ 488 Hz
 
 	OCR0A = 0;
-}                     
+}
 
 int main(void)
 {
