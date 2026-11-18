@@ -1,19 +1,3 @@
-// main.cpp – MAS245 CAN-Tetris: spillserver og spiller 2 på Raspberry Pi 3.
-//
-// Dataflyt (oppgavekravet):  Teensy leser joystick (sensor) -> sender rå tilstand på CAN (0x100)
-//   -> Pi prosesserer (flankedeteksjon + spillogikk) -> Pi sender brett og brikke tilbake (0x200-0x210)
-//   -> Teensy viser det på OLED. Pi-en leser i tillegg sin egen IMU (spiller 2) og legger den ut på 0x110.
-//
-// Pi-en eier ALL spillogikk og klokka; Teensy-en er bare input og skjerm. Det gir én kilde til sannhet:
-// kjørte begge nodene spillet, måtte de holdes synkronisert (to klokker som glir, tapte rammer).
-// Nå kan Teensy-en starte sent, miste en ramme eller restarte uten at de to ser ulike spill.
-//
-// Hovedløkka blokkerer aldri: poll() venter på CAN i maks LOOP_TIMEOUT_MS, og alle periodiske
-// oppgaver styres av steady_clock (monoton, hopper ikke når systemklokka stilles).
-//
-// Bruk:  can_pingpong              spill
-//        can_pingpong --kalibrer   skriv IMU-verdier, for å justere tersklene i imu.h
-
 #include <chrono>
 #include <cstdio>
 #include <random>
@@ -24,17 +8,18 @@
 #include "renderer.h"
 #include "tetris_game.h"
 
-using Clock = std::chrono::steady_clock;
+using Clock = std::chrono::steady_clock;  // monotonic
 using std::chrono::milliseconds;
 
+// ---------- Settings ----------
 constexpr const char* CAN_IF = "can0";
-constexpr int LOOP_TIMEOUT_MS = 5;            // lengste ventetid i poll()
-constexpr milliseconds IMU_PERIOD{20};        // les IMU med 50 Hz
-constexpr milliseconds IMU_SEND_PERIOD{100};  // send 0x110 med 10 Hz (bare logging)
-constexpr milliseconds REFRESH_PERIOD{500};   // send alt på nytt selv uten endring
-constexpr milliseconds TEENSY_TIMEOUT{1000};  // ingen 0x100 på så lenge = ingen kontakt
+constexpr int LOOP_TIMEOUT_MS = 5;            // max wait in poll()
+constexpr milliseconds IMU_PERIOD{20};        // read IMU at 50 Hz
+constexpr milliseconds IMU_SEND_PERIOD{100};  // send 0x110 at 10 Hz
+constexpr milliseconds REFRESH_PERIOD{500};   // resend everything even without changes
+constexpr milliseconds TEENSY_TIMEOUT{1000};  // no 0x100 for this long = no contact
 
-// Kalibreringsmodus: skriv rå og omregnede verdier 10 ganger i sekundet. Blokkering er greit her.
+// ---------- Calibration mode (--kalibrer) ----------
 int calibrate(Imu& imu) {
   if (!imu.ok) {
     std::fprintf(stderr,
@@ -52,7 +37,7 @@ int calibrate(Imu& imu) {
     std::printf("\rrå %6d %6d %6d | x %+5.2f g  y %+5.2f g  z %+5.2f g | x-vipp %+d  y-vipp %+d   ",
                 a.rawX, a.rawY, a.rawZ, a.x, a.y, a.z, tiltX.state, tiltY.state);
     std::fflush(stdout);
-    usleep(100 * 1000);
+    usleep(100 * 1000);  // 10 Hz
   }
   std::fprintf(stderr, "\nLesefeil fra IMU\n");
   return 1;
@@ -71,28 +56,26 @@ int main(int argc, char** argv) {
   Board sentBoard{};
   Frame sentState{};
   auto lastFall = Clock::now(), lastImu = lastFall, lastImuSend = lastFall, lastRefresh = lastFall;
-  auto lastTeensy = lastFall - TEENSY_TIMEOUT;  // "ingen kontakt" til første 0x100 kommer
+  auto lastTeensy = lastFall - TEENSY_TIMEOUT;
 
   auto send = [&](uint32_t id, const auto& data) {
     if (!can.send(id, data)) ++sendErrors;
   };
 
-  std::printf("\x1b[2J");  // tøm terminalen én gang; render() tegner deretter over seg selv
+  std::printf("\x1b[2J");  // clear terminal once
   while (true) {
-    // 1. Vent på CAN (maks LOOP_TIMEOUT_MS) og behandle alt som ligger i køen.
+    // ---------- 1. CAN input (player 1) ----------
     can.wait(LOOP_TIMEOUT_MS);
     can_frame f;
     while (can.read(f)) {
       if (f.can_id != ID_JOYSTICK || f.can_dlc < 1) continue;
-      // Spiller 1: Teensy sender rå knappetilstand. Flankedeteksjon her gir én hendelse per trykk
-      // (ingen auto-repeat), og en ramme som kommer to ganger eller forsvinner gjør ingen skade.
-      const uint8_t buttons = f.data[0], pressed = buttons & ~prevButtons;
+      const uint8_t buttons = f.data[0], pressed = buttons & ~prevButtons;  // edge detection
       prevButtons = buttons;
       lastTeensy = Clock::now();
       if (pressed & BTN_LEFT) game.move(P1, -1);
       if (pressed & BTN_RIGHT) game.move(P1, +1);
       if (pressed & (BTN_UP | BTN_CLICK)) game.rotate(P1);
-      game.setSoftDrop(P1, buttons & BTN_DOWN);  // tilstand: så lenge knappen holdes
+      game.setSoftDrop(P1, buttons & BTN_DOWN);  // held, not edge
     }
 
     const auto now = Clock::now();
@@ -102,9 +85,8 @@ int main(int argc, char** argv) {
       return true;
     };
 
-    // 2. Spiller 2: IMU. Vipp venstre/høyre og vipp bort er HENDELSER, vipp mot deg er en TILSTAND.
-    //    Rotasjon = vipp bort: samme mekanisme som resten, og ingen gyro-terskel å stille inn. Et raskt
-    //    rykk ville dessuten slått ut på akselerometeret og kunnet gi en flytt ved et uhell.
+    // ---------- 2. IMU input (player 2) ----------
+    // Tilt left/right = move, tilt away = rotate, tilt towards you = soft drop
     if (imu.ok && due(lastImu, IMU_PERIOD) && imu.read(acc)) {
       if (const int dir = tiltX.update(acc.x)) game.move(P2, dir);
       if (tiltY.update(acc.y) == -1) game.rotate(P2);
@@ -115,12 +97,10 @@ int main(int argc, char** argv) {
       send(ID_IMU, packImu(acc.x, acc.y, acc.z, flags));
     }
 
-    // 3. Tyngdekraft: ett steg ned hver gang fall-intervallet har gått.
+    // ---------- 3. Gravity ----------
     if (due(lastFall, milliseconds(game.fallIntervalMs()))) game.step();
 
-    // 4. Send det som er endret, og alt på nytt hver REFRESH_PERIOD (Teensy kan ha startet sent
-    //    eller mistet en ramme). Brettet sendes før brikken, så Teensy har det nye brettet når
-    //    den nye brikken kommer.
+    // ---------- 4. Send changes, and everything every REFRESH_PERIOD ----------
     const bool refresh = due(lastRefresh, REFRESH_PERIOD);
     const bool boardChanged = game.board != sentBoard;
     const Frame state = packState(game);
@@ -129,7 +109,7 @@ int main(int argc, char** argv) {
       ++boardSeq;
       sentBoard = game.board;
     }
-    if (boardChanged || refresh) {
+    if (boardChanged || refresh) {  // board before state, so the Teensy has the new board first
       const auto parts = packBoard(game.board, boardSeq);
       for (int k = 0; k < 4; ++k) send(ID_BOARD + k, parts[k]);
     }
@@ -137,6 +117,8 @@ int main(int argc, char** argv) {
       send(ID_STATE, state);
       sentState = state;
     }
+
+    // ---------- 5. Terminal ----------
     if (boardChanged || stateChanged || refresh) {
       char footer[160];
       std::snprintf(footer, sizeof footer, "IMU %s  x %+.2f g  y %+.2f g | Teensy: %s | CAN-sendefeil: %d",

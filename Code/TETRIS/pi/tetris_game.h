@@ -1,5 +1,3 @@
-// tetris_game.h – ren spillogikk for to-spiller Tetris. Ingen IO og ingen klokke, så den kan
-// testes alene (test_tetris.cpp). main.cpp eier tiden og kaller step() når et fall-intervall har gått.
 #pragma once
 #include <algorithm>
 #include <array>
@@ -9,18 +7,18 @@
 
 constexpr int COLS = 10, ROWS = 20;
 
-// Fart: fall-intervallet krymper for hver fjernet linje, ned til en nedre grense.
+// ---------- Speed ----------
 constexpr int START_FALL_MS = 800;
 constexpr int SPEEDUP_PER_LINE_MS = 25;
 constexpr int MIN_FALL_MS = 100;
-constexpr int SOFT_DROP_MS = 50;  // fall-intervall mens "raskere fall" holdes
+constexpr int SOFT_DROP_MS = 50;  // fall interval while soft drop is held
 
-constexpr int POINTS[5] = {0, 100, 300, 500, 800};  // poeng for 0..4 linjer fjernet på én gang
+constexpr int POINTS[5] = {0, 100, 300, 500, 800};  // points for 0..4 lines cleared at once
 
-constexpr int P1 = 0, P2 = 1;  // spiller 1 = Teensy (joystick), spiller 2 = Pi (IMU)
+constexpr int P1 = 0, P2 = 1;  // player 1 = Teensy (joystick), player 2 = Pi (IMU)
 
-// De 7 brikkene, 4 rotasjoner hver (med klokka), som 4x4-masker.
-// Bit 15 er øverste venstre rute, og masken leses radvis: 0x0F00 = rad 1 full = liggende I.
+// ---------- Pieces ----------
+// 7 pieces x 4 rotations (clockwise) as 4x4 masks. Bit 15 = top left, read row by row.
 constexpr uint16_t SHAPES[7][4] = {
     {0x0F00, 0x2222, 0x00F0, 0x4444},  // I
     {0xCC00, 0xCC00, 0xCC00, 0xCC00},  // O
@@ -33,17 +31,17 @@ constexpr uint16_t SHAPES[7][4] = {
 
 inline bool maskHas(uint16_t mask, int r, int c) { return mask & (0x8000 >> (r * 4 + c)); }
 
-using Board = std::array<std::array<bool, COLS>, ROWS>;  // [rad][kolonne], rad 0 øverst
+using Board = std::array<std::array<bool, COLS>, ROWS>;  // [row][col], row 0 at top
 
 struct TetrisGame {
-  Board board{};          // landede brikker (uten den aktive)
-  int type = 0, rot = 0;  // aktiv brikke = SHAPES[type][rot]
-  int x = 0, y = 0;       // øverste venstre hjørne av 4x4-masken på brettet
-  int turn = P1;          // hvem som styrer den aktive brikken
-  int lastPlacedBy = P1;  // hvem som plasserte forrige brikke (vises ved game over)
+  Board board{};          // landed pieces, without the active piece
+  int type = 0, rot = 0;  // active piece = SHAPES[type][rot]
+  int x = 0, y = 0;       // top left corner of the 4x4 mask
+  int turn = P1;
+  int lastPlacedBy = P1;
   int score = 0, lines = 0;
   bool over = false;
-  std::array<bool, 2> softDrop{};  // "raskere fall" holdes inne, per spiller
+  std::array<bool, 2> softDrop{};  // per player
 
   explicit TetrisGame(unsigned seed) : rng(seed) { reset(); }
 
@@ -55,18 +53,18 @@ struct TetrisGame {
     spawn();
   }
 
-  // ---- Input. Bare spilleren som har turen påvirker brikken. ----
+  // ---------- Input (only the player whose turn it is) ----------
   void move(int player, int dx) {
     if (player == turn && !over && fits(x + dx, y, rot)) x += dx;
   }
   void rotate(int player) {
-    if (over) {  // etter game over betyr roter "ny runde", for begge spillere
+    if (over) {  // rotate after game over = new round
       reset();
       return;
     }
     if (player != turn) return;
     const int r = (rot + 1) % 4;
-    for (int dx : {0, -1, 1})  // enkelt veggspark: flytt én rute hvis rotasjonen kolliderer
+    for (int dx : {0, -1, 1})  // simple wall kick: shift one column if the rotation collides
       if (fits(x + dx, y, r)) {
         x += dx;
         rot = r;
@@ -75,10 +73,10 @@ struct TetrisGame {
   }
   void setSoftDrop(int player, bool held) { softDrop[player] = held; }
 
-  // ---- Tid ----
+  // ---------- Time ----------
   int baseFallMs() const { return std::max(MIN_FALL_MS, START_FALL_MS - lines * SPEEDUP_PER_LINE_MS); }
   int fallIntervalMs() const { return softDrop[turn] ? std::min(SOFT_DROP_MS, baseFallMs()) : baseFallMs(); }
-  void step() {  // ett tyngdekraft-steg
+  void step() {
     if (over) return;
     if (fits(x, y + 1, rot)) ++y;
     else lock();
@@ -104,16 +102,16 @@ private:
     rot = 0;
     x = (COLS - 4) / 2;
     y = 0;
-    if (!fits(x, y, rot)) over = true;  // ny brikke får ikke plass = game over
+    if (!fits(x, y, rot)) over = true;  // new piece does not fit = game over
   }
 
   void lock() {
-    // 1. Skriv brikken inn i brettet.
+    // Write the piece into the board
     for (int r = 0; r < 4; ++r)
       for (int c = 0; c < 4; ++c)
         if (maskHas(pieceMask(), r, c)) board[y + r][x + c] = true;
 
-    // 2. Fjern fulle rader: kopier alle ikke-fulle rader nedover, og tøm det som blir igjen øverst.
+    // Clear full rows: copy non-full rows down, empty what is left at the top
     int dst = ROWS - 1;
     for (int src = ROWS - 1; src >= 0; --src)
       if (std::count(board[src].begin(), board[src].end(), true) < COLS) board[dst--] = board[src];
@@ -122,7 +120,7 @@ private:
     lines += cleared;
     score += POINTS[cleared];
 
-    // 3. Turen går over til den andre spilleren.
+    // Turn goes to the other player
     lastPlacedBy = turn;
     turn = 1 - turn;
     spawn();

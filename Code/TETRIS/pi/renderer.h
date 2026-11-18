@@ -1,5 +1,3 @@
-// renderer.h – tegner spillet i terminalen (over SSH) med ANSI-escape-koder.
-// Ingen ncurses: vi trenger bare "markør øverst til venstre" (\x1b[H) og "slett resten av linja" (\x1b[K).
 #pragma once
 #include <array>
 #include <iostream>
@@ -8,7 +6,8 @@
 #include "tetris_game.h"
 
 inline void render(const TetrisGame& g, const std::string& footer) {
-  std::array<std::string, ROWS> info;  // tekst til høyre for brettet, én per rad
+  // ---------- Info text, one string per board row ----------
+  std::array<std::string, ROWS> info;
   info[0] = "MAS245 CAN-Tetris";
   info[2] = "Poeng:  " + std::to_string(g.score);
   info[3] = "Linjer: " + std::to_string(g.lines);
@@ -19,16 +18,17 @@ inline void render(const TetrisGame& g, const std::string& footer) {
     info[9] = "Roter (joystick opp/klikk eller vipp bort) for ny runde";
   }
 
+  // ---------- Board ----------
   std::ostringstream out;
-  out << "\x1b[H";  // tegn over forrige bilde i stedet for å tømme skjermen: ingen flimring
+  out << "\x1b[H";  // cursor to top left: draw over the previous frame, no flicker
   for (int r = 0; r < ROWS; ++r) {
     out << "<!";
     for (int c = 0; c < COLS; ++c) {
-      const int pr = r - g.y, pc = c - g.x;  // ruta sett fra den aktive brikkens 4x4-maske
+      const int pr = r - g.y, pc = c - g.x;  // cell position inside the active piece's 4x4 mask
       const bool piece = !g.over && pr >= 0 && pr < 4 && pc >= 0 && pc < 4 && maskHas(g.pieceMask(), pr, pc);
       out << (piece ? "[]" : g.board[r][c] ? "##" : " .");
     }
-    out << "!>  " << info[r] << "\x1b[K\n";
+    out << "!>  " << info[r] << "\x1b[K\n";  // \x1b[K clears the rest of the line
   }
   out << "<!" << std::string(2 * COLS, '=') << "!>\x1b[K\n" << footer << "\x1b[K\n";
   std::cout << out.str() << std::flush;
