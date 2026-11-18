@@ -19,33 +19,33 @@ constexpr milliseconds IMU_SEND_PERIOD{100};  // send 0x110 at 10 Hz
 constexpr milliseconds REFRESH_PERIOD{500};   // resend everything even without changes
 constexpr milliseconds TEENSY_TIMEOUT{1000};  // no 0x100 for this long = no contact
 
-// ---------- Calibration mode (--kalibrer) ----------
+// ---------- Calibration mode (--calibrate) ----------
 int calibrate(Imu& imu) {
   if (!imu.ok) {
     std::fprintf(stderr,
-                 "Fant ikke MPU-6050 på %s, adresse 0x%02X (WHO_AM_I = %d, forventet 104 = 0x68, -1 = ingen svar).\n"
-                 "Sjekk dtparam=i2c_arm=on i config.txt og at /dev/i2c-1 finnes (modprobe i2c-dev). Se README.\n",
+                 "MPU-6050 not found on %s, address 0x%02X (WHO_AM_I = %d, expected 104 = 0x68, -1 = no response).\n"
+                 "Check dtparam=i2c_arm=on in config.txt and that /dev/i2c-1 exists (modprobe i2c-dev). See README.\n",
                  I2C_DEV, MPU_ADDR, imu.whoAmI);
     return 1;
   }
-  std::printf("MPU-6050 OK. Vippet over %.2f g, nøytral under %.2f g. Ctrl+C avslutter.\n", TILT_ON_G, TILT_OFF_G);
+  std::printf("MPU-6050 OK. Tilted above %.2f g, neutral below %.2f g. Ctrl+C to quit.\n", TILT_ON_G, TILT_OFF_G);
   Tilt tiltX, tiltY;
   Accel a;
   while (imu.read(a)) {
     tiltX.update(a.x);
     tiltY.update(a.y);
-    std::printf("\rrå %6d %6d %6d | x %+5.2f g  y %+5.2f g  z %+5.2f g | x-vipp %+d  y-vipp %+d   ",
+    std::printf("\rraw %6d %6d %6d | x %+5.2f g  y %+5.2f g  z %+5.2f g | x-tilt %+d  y-tilt %+d   ",
                 a.rawX, a.rawY, a.rawZ, a.x, a.y, a.z, tiltX.state, tiltY.state);
     std::fflush(stdout);
     usleep(100 * 1000);  // 10 Hz
   }
-  std::fprintf(stderr, "\nLesefeil fra IMU\n");
+  std::fprintf(stderr, "\nIMU read error\n");
   return 1;
 }
 
 int main(int argc, char** argv) {
   Imu imu;
-  if (argc > 1 && std::string(argv[1]) == "--kalibrer") return calibrate(imu);
+  if (argc > 1 && std::string(argv[1]) == "--calibrate") return calibrate(imu);
 
   CanBus can(CAN_IF);
   TetrisGame game(std::random_device{}());
@@ -121,9 +121,9 @@ int main(int argc, char** argv) {
     // ---------- 5. Terminal ----------
     if (boardChanged || stateChanged || refresh) {
       char footer[160];
-      std::snprintf(footer, sizeof footer, "IMU %s  x %+.2f g  y %+.2f g | Teensy: %s | CAN-sendefeil: %d",
-                    imu.ok ? "ok" : "MANGLER (kjør --kalibrer)", acc.x, acc.y,
-                    now - lastTeensy < TEENSY_TIMEOUT ? "ok" : "ingen kontakt", sendErrors);
+      std::snprintf(footer, sizeof footer, "IMU %s  x %+.2f g  y %+.2f g | Teensy: %s | CAN send errors: %d",
+                    imu.ok ? "ok" : "MISSING (run --calibrate)", acc.x, acc.y,
+                    now - lastTeensy < TEENSY_TIMEOUT ? "ok" : "no contact", sendErrors);
       render(game, footer);
     }
   }
