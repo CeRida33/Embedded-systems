@@ -3,13 +3,8 @@
 #include <Adafruit_SSD1306.h>
 #include <FlexCAN_T4.h>
 
-<<<<<<< Updated upstream
-constexpr int GRUPPE = 1;      // TODO: eget gruppenr + 20
-constexpr int MOTSTANDER = 2;  // TODO: motstanders gruppenr + 20
-=======
-constexpr int GRUPPE = 2;      // Your groups number
-constexpr int MOTSTANDER = 1;  // Opponents group nymber
->>>>>>> Stashed changes
+constexpr int GRUPPE = 1;      // Our group number
+constexpr int MOTSTANDER = 2;  // Opponents group number
 
 // Joystick pins
 constexpr int JOY_UP = 22, JOY_DOWN = 23, JOY_CLICK = 19;
@@ -91,7 +86,7 @@ void loop() {
     if (m.id == MOTSTANDER + 20) {
       motY = m.buf[0];
     } else if (m.id == MOTSTANDER + 50 && !master) {
-      ballX = W - BALL - m.buf[0];  // mirroring x to make your opponents coordniates
+      ballX = W - BALL - m.buf[0];  // mirroring x to make your opponents coordinates
       ballY = m.buf[1];
       motPoeng = m.buf[2];          // Master points is the opponents points in our system
       minPoeng = m.buf[3];
