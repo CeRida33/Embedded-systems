@@ -22,7 +22,7 @@ FlexCAN_T4<CAN0, RX_SIZE_256, TX_SIZE_16> can0;
 constexpr uint32_t SAMPLE_MS = 10;        // longer than switch bounce = debounce
 constexpr uint32_t HEARTBEAT_MS = 100;    // send joystick state at least this often
 constexpr uint32_t DRAW_MS = 30;          // ~33 frames per second
-constexpr uint32_t PI_TIMEOUT_MS = 1000;  // no 0x210 for this long = "Venter pa Pi"
+constexpr uint32_t PI_TIMEOUT_MS = 1000;  // no 0x210 for this long = "Waiting for Pi"
 
 // ---------- Board ----------
 constexpr int COLS = 10, ROWS = 20, CELL = 3;  // 3x3 pixels per cell
@@ -80,7 +80,7 @@ void draw() {
   display.print("CAN-TETRIS");
   if (gotState) {
     display.setCursor(36, 12);
-    display.print("Poeng ");
+    display.print("Score ");
     display.print(state[6] << 8 | state[7]);
     display.setCursor(36, 22);
     display.print("Fall  ");
@@ -88,12 +88,12 @@ void draw() {
     display.print("ms");
   }
   display.setCursor(36, 34);
-  display.print(!piAlive ? "Venter pa Pi" : (flags & 1) ? "Pi sin tur" : "DIN TUR!");
+  display.print(!piAlive ? "Waiting for Pi" : (flags & 1) ? "Pi's turn" : "YOUR TURN!");
   if (piAlive && (flags & 2)) {
     display.setCursor(36, 46);
     display.print("GAME OVER");
     display.setCursor(36, 56);
-    display.print((flags & 4) ? "Siste: Pi" : "Siste: Teensy");
+    display.print((flags & 4) ? "Last: Pi" : "Last: Teensy");
   }
   display.display();
 }

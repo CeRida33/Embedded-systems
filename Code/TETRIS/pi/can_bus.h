@@ -49,7 +49,7 @@ private:
   int fd;
 
   static void die(const char* ifname) {
-    std::fprintf(stderr, "Kunne ikke åpne %s (%s). Er CAN satt opp?\n  ip link set %s up type can bitrate 250000\n",
+    std::fprintf(stderr, "Could not open %s (%s). Is CAN set up?\n  ip link set %s up type can bitrate 250000\n",
                  ifname, std::strerror(errno), ifname);
     std::exit(1);
   }

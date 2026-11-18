@@ -71,5 +71,5 @@ int main() {
 
   assert(packImu(1.0f, -0.5f, 0.0f, 0x05) == (std::array<uint8_t, 7>{0x03, 0xE8, 0xFE, 0x0C, 0x00, 0x00, 0x05}));
 
-  std::puts("Alle tester OK");
+  std::puts("All tests passed");
 }

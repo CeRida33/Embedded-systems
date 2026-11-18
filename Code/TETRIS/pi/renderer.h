@@ -9,13 +9,13 @@ inline void render(const TetrisGame& g, const std::string& footer) {
   // ---------- Info text, one string per board row ----------
   std::array<std::string, ROWS> info;
   info[0] = "MAS245 CAN-Tetris";
-  info[2] = "Poeng:  " + std::to_string(g.score);
-  info[3] = "Linjer: " + std::to_string(g.lines);
-  info[4] = "Fall:   " + std::to_string(g.baseFallMs()) + " ms";
-  info[6] = std::string("Tur:    ") + (g.turn == P1 ? "spiller 1 (Teensy-joystick)" : "spiller 2 (Pi-IMU)");
+  info[2] = "Score: " + std::to_string(g.score);
+  info[3] = "Lines: " + std::to_string(g.lines);
+  info[4] = "Fall:  " + std::to_string(g.baseFallMs()) + " ms";
+  info[6] = std::string("Turn:  ") + (g.turn == P1 ? "player 1 (Teensy joystick)" : "player 2 (Pi IMU)");
   if (g.over) {
-    info[8] = "GAME OVER! Spiller " + std::to_string(g.lastPlacedBy + 1) + " plasserte siste brikke";
-    info[9] = "Roter (joystick opp/klikk eller vipp bort) for ny runde";
+    info[8] = "GAME OVER! Player " + std::to_string(g.lastPlacedBy + 1) + " placed the last piece";
+    info[9] = "Rotate (joystick up/click or tilt away) for a new round";
   }
 
   // ---------- Board ----------
